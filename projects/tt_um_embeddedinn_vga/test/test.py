@@ -462,35 +462,40 @@ async def test_animation(dut):
 
     dut._log.info("Checking animation across frames...")
 
+    # Sample multiple lines to capture the bouncing text area
+    # Text starts at tx=100, ty=100 and bounces around
+    sample_lines = [120, 130, 140, 150]  # Lines where text is likely to appear
+    sample_pixel = 150  # Pixel position in text area
+
     # Capture colors in frame 1
-    await wait_active_start(dut)
-    await ClockCycles(dut.clk, H_TOTAL * 200 + 300)  # Line 200, pixel 300
-
     frame1_colors = []
-    for _ in range(10):
-        await RisingEdge(dut.clk)
-        frame1_colors.append(get_rgb(dut))
+    await wait_active_start(dut)
+    for line in sample_lines:
+        await ClockCycles(dut.clk, H_TOTAL * line + sample_pixel)
+        for _ in range(5):
+            await RisingEdge(dut.clk)
+            frame1_colors.append(get_rgb(dut))
 
-    # Wait 10 frames
-    for _ in range(10):
+    # Wait 20 frames for more movement (text moves 1 pixel/frame)
+    for _ in range(20):
         await wait_vsync_fall(dut)
         while get_vsync(dut) == 0:
             await RisingEdge(dut.clk)
 
-    # Capture colors at same location
-    await wait_active_start(dut)
-    await ClockCycles(dut.clk, H_TOTAL * 200 + 300)
-
+    # Capture colors at same locations
     frame2_colors = []
-    for _ in range(10):
-        await RisingEdge(dut.clk)
-        frame2_colors.append(get_rgb(dut))
+    await wait_active_start(dut)
+    for line in sample_lines:
+        await ClockCycles(dut.clk, H_TOTAL * line + sample_pixel)
+        for _ in range(5):
+            await RisingEdge(dut.clk)
+            frame2_colors.append(get_rgb(dut))
 
-    # Compare
+    # Compare - check if any pixels changed
     color_changes = sum(1 for c1, c2 in zip(frame1_colors, frame2_colors) if c1 != c2)
 
-    assert color_changes > 0, "No animation detected - pixels identical after 10 frames"
-    dut._log.info(f"PASS: Animation detected - {color_changes}/10 pixels changed after 10 frames")
+    assert color_changes > 0, "No animation detected - pixels identical after 20 frames"
+    dut._log.info(f"PASS: Animation detected - {color_changes}/{len(frame1_colors)} pixels changed after 20 frames")
 
 
 @cocotb.test()
